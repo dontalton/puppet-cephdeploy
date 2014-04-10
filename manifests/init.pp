@@ -177,10 +177,16 @@ class cephdeploy(
     require => Exec['install ceph'],
   }
 
+  if $::operatingsystem == "centos" or $::operatingsystem == "redhat" {
+    $check_cmd = '/bin/rpm -qa | grep "ceph-[0-9]"'
+  } else {
+    $check_cmd = '/usr/bin/dpkg -l | grep ceph-common'
+  }
+
   exec { 'install ceph':
     cwd     => "/home/$ceph_deploy_user/bootstrap",
     command => "/usr/bin/ceph-deploy install --no-adjust-repos $::hostname",
-    unless  => '/usr/bin/dpkg -l | grep ceph-common',
+    unless  => $check_cmd,
     require => [ Package['ceph-deploy'], File['ceph.mon.keyring'], File["/home/$ceph_deploy_user/bootstrap"] ],
   }
 

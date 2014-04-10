@@ -41,7 +41,7 @@ class cephdeploy::mon(
   $ceph_cluster_name,
 ){
 
-  include cephdeploy
+#  include cephdeploy
 
   exec { 'create mon':
     cwd      => "/home/$ceph_deploy_user/bootstrap",
