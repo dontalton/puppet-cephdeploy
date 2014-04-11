@@ -39,6 +39,9 @@
 # [*ceph_cluster_network*]
 #   (required) The data replication network.
 #
+# [*ceph_release*]
+#   (required) The Ceph release to use.
+#
 # [*has_compute*]
 #   (required) Whether or not the host has nova-compute running.
 
@@ -51,6 +54,7 @@ class cephdeploy(
   $ceph_monitor_address,
   $ceph_public_network,
   $ceph_cluster_network,
+  $ceph_release = 'emperor',
   $has_compute = false,
 ){
 
@@ -141,6 +145,19 @@ class cephdeploy(
 
 ## Install ceph and dependencies
 
+  case $::osfamily {
+    'RedHat', 'Suse': {
+      cephdeploy::yum {'ceph-packages':
+	release => $ceph_release,
+      }
+    }
+    'Debian': {
+      cephdeploy::apt {'ceph-packages':
+        release => $ceph_release,
+      }
+    }
+  }
+
   package {'ceph-deploy':
     ensure => present,
   }
@@ -180,15 +197,23 @@ class cephdeploy(
   exec { 'install ceph':
     cwd     => "/home/$ceph_deploy_user/bootstrap",
     command => "/usr/bin/ceph-deploy install --no-adjust-repos $::hostname",
-    unless  => '/usr/bin/dpkg -l | grep ceph-common',
     require => [ Package['ceph-deploy'], File['ceph.mon.keyring'], File["/home/$ceph_deploy_user/bootstrap"] ],
+  }
+
+  case $::osfamily {
+    'RedHat': {
+      file { '/lib/udev/rules.d/95-ceph-osd.rules':
+        ensure  => file,
+        content => template('cephdeploy/95-ceph-osd.rules.erb'),
+	require => Exec['install ceph']
+      }
+    }
   }
 
   file { '/etc/ceph/ceph.conf':
     mode    => 0644,
     require => Exec['install ceph'],
   }
-
 
 ## If the ceph node is also running nova-compute
 
