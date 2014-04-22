@@ -178,7 +178,7 @@ class cephdeploy(
   }
 
   if $::operatingsystem == "centos" or $::operatingsystem == "redhat" {
-    $check_cmd = '/bin/rpm -qa | grep "ceph-[0-9]"'
+    $check_cmd = '/bin/rpm -qa | grep "^ceph-[0-9]"'
   } else {
     $check_cmd = '/usr/bin/dpkg -l | grep ceph-common'
   }
