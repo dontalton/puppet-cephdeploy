@@ -22,6 +22,9 @@
 # [*setup_pools*]
 #   (optional) Create the cinder and glance rbd pools.
 #
+# [*use_kernel_rbd*]
+#   (optional) Use kernel rbd driver. Will asume directory as storage if false
+#
 # [*ceph_deploy_user*]
 #   (required) The cephdeploy account username
 #
@@ -45,6 +48,7 @@
 class cephdeploy::osdwrapper(
   $disks,
   $setup_pools = true,
+  $use_kernel_rbd = false,
   $ceph_deploy_user,
   $ceph_primary_mon,
   $ceph_cluster_interface,
@@ -55,6 +59,7 @@ class cephdeploy::osdwrapper(
 
   cephdeploy::osd { $disks:
     setup_pools            => $setup_pools,
+    use_kernel_rbd         => $use_kernel_rbd,
     ceph_deploy_user       => $ceph_deploy_user,
     ceph_primary_mon       => $ceph_primary_mon,
     ceph_cluster_interface => $ceph_cluster_interface,

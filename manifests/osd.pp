@@ -19,6 +19,9 @@
 # [*setup_pools*]
 #   (optional) Create the cinder and glance rbd pools.
 #
+# [*use_kernel_rbd*]
+#   (optional) Use kernel rbd driver. Will asume directory as storage if false
+#
 # [*ceph_deploy_user*]
 #   (required) The cephdeploy account username
 #
@@ -40,6 +43,7 @@
 
 define cephdeploy::osd(
   $setup_pools = true,
+  $use_kernel_rbd = true,
   $ceph_deploy_user,
   $ceph_primary_mon,
   $ceph_cluster_interface,
@@ -58,13 +62,6 @@ define cephdeploy::osd(
     $disk_journal_real = $disk_journal
   } else {
     $disk_journal_real = $disk
-  }
-
-  exec { "create osd $disk":
-     cwd     => "/home/$ceph_deploy_user/bootstrap",
-     command => "/usr/bin/ceph-deploy --overwrite-conf osd create $::hostname:$disk:$disk_journal_real",
-     require => Exec["zap $disk"],
-     unless  => "/usr/bin/test -e /home/$ceph_deploy_user/zapped/$disk",
   }
 
   exec { "get config $disk":
@@ -89,16 +86,39 @@ define cephdeploy::osd(
     require => Exec["gatherkeys_$disk"],
   }
 
-  exec { "zap $disk":
-    cwd     => "/home/$ceph_deploy_user/bootstrap",
-    command => "/usr/bin/ceph-deploy disk zap $::hostname:$disk",
-    require => [ Exec['install ceph'], Exec["gatherkeys_$disk"] ],
-    unless  => "/usr/bin/test -e /home/$ceph_deploy_user/zapped/$disk",
-  }
+  if $use_kernel_rbd {
+    exec { "create osd $disk":
+       cwd     => "/home/$ceph_deploy_user/bootstrap",
+       command => "/usr/bin/ceph-deploy --overwrite-conf osd create $::hostname:$disk:$disk_journal_real",
+       require => Exec["zap $disk"],
+       unless  => "/usr/bin/test -e /home/$ceph_deploy_user/zapped/$disk",
+    }
 
-  file { "/home/$ceph_deploy_user/zapped/$disk":
-    ensure  => present,
-    require => [ Exec["zap $disk"], Exec["create osd $disk"], File["/home/$ceph_deploy_user/zapped"] ],
+    exec { "zap $disk":
+      cwd     => "/home/$ceph_deploy_user/bootstrap",
+      command => "/usr/bin/ceph-deploy disk zap $::hostname:$disk",
+      require => [ Exec['install ceph'], Exec["gatherkeys_$disk"] ],
+      unless  => "/usr/bin/test -e /home/$ceph_deploy_user/zapped/$disk",
+    }
+
+    file { "/home/$ceph_deploy_user/zapped/$disk":
+      ensure  => present,
+      require => [ Exec["zap $disk"], Exec["create osd $disk"], File["/home/$ceph_deploy_user/zapped"] ],
+    }
+  } else {
+    exec { "prepare osd $disk":
+       cwd     => "/home/$ceph_deploy_user/bootstrap",
+       command => "/usr/bin/ceph-deploy --overwrite-conf osd prepare $::hostname:$disk && echo 'prepared_$disk' >> /home/$ceph_deploy_user/zapped/log",
+       unless  => "/bin/grep 'prepared_$disk' /home/$ceph_deploy_user/zapped/log",
+       require => [ Exec['install ceph'], Exec["gatherkeys_$disk"] ],
+    }
+
+    exec { "create osd $disk":
+       cwd     => "/home/$ceph_deploy_user/bootstrap",
+       command => "/usr/bin/ceph-deploy --overwrite-conf osd activate $::hostname:$disk && echo 'activated_$disk' >> /home/$ceph_deploy_user/zapped/log",
+       unless  => "/bin/grep 'activated_$disk' /home/$ceph_deploy_user/zapped/log",
+       require => [ Exec['install ceph'], Exec["gatherkeys_$disk"], Exec["prepare osd $disk"] ],
+    }
   }
 
   exec {"iptables osd $disk":

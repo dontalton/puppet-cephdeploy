@@ -23,9 +23,15 @@ class cephdeploy::mds(
 
   include cephdeploy
 
+  if $::operatingsystem == "centos" or $::operatingsystem == "redhat" {
+    $ceph_deploy = '/usr/bin/ceph-deploy'
+  } else {
+    $ceph_deploy = '/usr/local/bin/ceph-deploy'
+  }
+
   exec { 'create mds':
     cwd     => "/home/$user/bootstrap",
-    command => "/usr/local/bin/ceph-deploy mds create $::hostname",
+    command => "$ceph_deploy mds create $::hostname",
     unless  => '/bin/ps -ef | /bin/grep -v grep | /bin/grep ceph-mds',
     require => Exec['install ceph'],
     provider => shell,
