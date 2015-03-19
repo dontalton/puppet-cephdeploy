@@ -1,6 +1,12 @@
 Automating ceph-deploy
 ======================
 
+Versions:
+master = puppet2
+puppet2 = for Puppet 2.x
+puppet3 = for Puppet 3.x
+openstack-installer = for CiscoSystems/openstack-installer data model
+
 This puppet module allows you to fully automate the deployment of a ceph cluster. The need for this sort of functionality came about with the goal of full bottom-up automation of an OpenStack cloud that is ceph-backed.
 
 This module will also configure OpenStack cinder and nova-compute nodes to use the ceph cluster.

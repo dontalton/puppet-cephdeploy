@@ -42,11 +42,11 @@ class cephdeploy::client(
   user {$ceph_deploy_user:
     ensure   => present,
     password => $pass,
-    home     => "/home/${user}",
+    home     => "/home/${ceph_deploy_user}",
     shell    => '/bin/bash',
   }
 
-  file {"/home/${user}":
+  file {"/home/${ceph_deploy_user}":
     ensure  => directory,
     owner   => $ceph_deploy_user,
     group   => $ceph_deploy_user,
@@ -54,74 +54,74 @@ class cephdeploy::client(
     require => User[$ceph_deploy_user],
   }
 
-  file {"/home/${user}/.ssh":
+  file {"/home/${ceph_deploy_user}/.ssh":
     ensure  => directory,
     owner   => $ceph_deploy_user,
     group   => $ceph_deploy_user,
     mode    => '0700',
-    require => File["/home/${user}"],
+    require => File["/home/${ceph_deploy_user}"],
   }
 
-  file {"/home/${user}/.ssh/id_rsa":
+  file {"/home/${ceph_deploy_user}/.ssh/id_rsa":
     content => template('cephdeploy/id_rsa.erb'),
     owner   => $ceph_deploy_user,
     group   => $ceph_deploy_user,
     mode    => '0600',
-    require => File["/home/${user}/.ssh"],
+    require => File["/home/${ceph_deploy_user}/.ssh"],
   }
 
-  file {"/home/${user}/.ssh/id_rsa.pub":
+  file {"/home/${ceph_deploy_user}/.ssh/id_rsa.pub":
     content => template('cephdeploy/id_rsa.pub.erb'),
     owner   => $ceph_deploy_user,
     group   => $ceph_deploy_user,
     mode    => '0644',
-    require => File["/home/${user}/.ssh"],
+    require => File["/home/${ceph_deploy_user}/.ssh"],
   }
 
-  file {"/home/${user}/.ssh/authorized_keys":
+  file {"/home/${ceph_deploy_user}/.ssh/authorized_keys":
     content => template('cephdeploy/id_rsa.pub.erb'),
     owner   => $ceph_deploy_user,
     group   => $ceph_deploy_user,
     mode    => '0600',
-    require => File["/home/${user}/.ssh"],
+    require => File["/home/${ceph_deploy_user}/.ssh"],
   }
 
-  file {"/home/${user}/.ssh/config":
+  file {"/home/${ceph_deploy_user}/.ssh/config":
     content => template('cephdeploy/config.erb'),
     owner   => $ceph_deploy_user,
     group   => $ceph_deploy_user,
     mode    => '0600',
-    require => File["/home/${user}/.ssh"],
+    require => File["/home/${ceph_deploy_user}/.ssh"],
   }
 
   exec {'passwordless sudo for ceph deploy user':
-    command => "/bin/echo \"${user} ALL = (root) NOPASSWD:ALL\"\
-                 | sudo tee /etc/sudoers.d/${user}",
-    unless  => "/usr/bin/test -e /etc/sudoers.d/${user}",
+    command => "/bin/echo \"${ceph_deploy_user} ALL = (root) NOPASSWD:ALL\"\
+                 | sudo tee /etc/sudoers.d/${ceph_deploy_user}",
+    unless  => "/usr/bin/test -e /etc/sudoers.d/${ceph_deploy_user}",
   }
 
-  file {"/etc/sudoers.d/${user}":
+  file {"/etc/sudoers.d/${ceph_deploy_user}":
     mode    => '0440',
     require => Exec['passwordless sudo for ceph deploy user'],
   }
 
-  file {"/home/${user}/bootstrap":
+  file {"/home/${ceph_deploy_user}/bootstrap":
     ensure  => directory,
     owner   => $ceph_deploy_user,
     group   => $ceph_deploy_user,
-    require => File["/home/${user}"],
+    require => File["/home/${ceph_deploy_user}"],
   }
 
   # install ceph client packages
 
   package {'ceph-common':
     ensure  => present,
-    require => File["/home/${user}/bootstrap"],
+    require => File["/home/${ceph_deploy_user}/bootstrap"],
   }
 
   package {'python-ceph':
     ensure  => present,
-    require => File["/home/${user}/bootstrap"],
+    require => File["/home/${ceph_deploy_user}/bootstrap"],
   }
 
   file { '/etc/ceph':
@@ -134,16 +134,16 @@ class cephdeploy::client(
   # get and install config and keys
 
   exec { 'get keys':
-    command => "/usr/bin/scp ${user}@${primary_mon}:bootstrap/{*.key*,ceph.conf} .",
+    command => "/usr/bin/scp ${ceph_deploy_user}@${primary_mon}:bootstrap/{*.key*,ceph.conf} .",
     user    => $ceph_deploy_user,
-    cwd     => "/home/${user}/bootstrap",
-    require => [ File["/home/${user}/bootstrap"], File["/home/${user}/.ssh/config"] ],
-    unless  => "/usr/bin/test -e /home/${user}/bootstrap/ceph.conf",
+    cwd     => "/home/${ceph_deploy_user}/bootstrap",
+    require => [ File["/home/${ceph_deploy_user}/bootstrap"], File["/home/${ceph_deploy_user}/.ssh/config"] ],
+    unless  => "/usr/bin/test -e /home/${ceph_deploy_user}/bootstrap/ceph.conf",
   }
 
   exec { 'place keys':
-    command => "/bin/cp /home/${user}/bootstrap/* /etc/ceph/",
-    cwd     => "/home/${user}/bootstrap",
+    command => "/bin/cp /home/${ceph_deploy_user}/bootstrap/* /etc/ceph/",
+    cwd     => "/home/${ceph_deploy_user}/bootstrap",
     require => [ Exec['get keys'], File['/etc/ceph'] ],
     unless  => '/usr/bin/test -e /etc/ceph/ceph.conf',
   }
@@ -151,8 +151,8 @@ class cephdeploy::client(
 
   if $setup_virsh {
 
-    if !defined(Package['libvirt-bin']) {
-      package {'libvirt-bin':
+    if !defined(Package['libvirt']) {
+      package {'libvirt':
         ensure => installed,
       }
     }
@@ -165,7 +165,7 @@ class cephdeploy::client(
     exec { 'get-or-set virsh secret':
       command => '/usr/bin/virsh secret-define --file /etc/ceph/secret.xml | /usr/bin/awk \'{print $2}\' | sed \'/^$/d\' > /etc/ceph/virsh.secret',
       creates => '/etc/ceph/virsh.secret',
-      require => [ Package['libvirt-bin'], File['/etc/ceph/secret.xml'] ],
+      require => [ Package['libvirt'], File['/etc/ceph/secret.xml'] ],
     }
 
     exec { 'set-secret-value virsh':
